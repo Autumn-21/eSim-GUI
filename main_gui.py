@@ -2,142 +2,294 @@ import sys
 import subprocess
 import json
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QLabel, QComboBox, QMessageBox
+from PyQt5.QtCore import Qt
 
-class GHDLInstallerGUI(QWidget):
-    def __init__(self):
+class KiCadUpdaterGUI(QWidget):
+    def __init__(self, main_gui):
         super().__init__()
+        self.main_gui = main_gui
+        self.package_name = "KiCad"
+        self.versions = ["7.0.11", "8.0.9"]
+        self.script_path = "./update-kicad-final.sh"
         self.initUI()
     
     def initUI(self):
         layout = QVBoxLayout()
+
+        self.title_label = QLabel("KiCad Updater", self)
+        self.title_label.setAlignment(Qt.AlignCenter)
+        self.title_label.setStyleSheet("font-size: 18px; padding: 10px 0;")
+        layout.addWidget(self.title_label)
+
+        self.installed_version = self.main_gui.package_versions.get("kicad", "Unknown")
+        self.installedLabel = QLabel(f"Installed Version: {self.installed_version}", self)
+        self.installedLabel.setStyleSheet("font-size: 14px; padding: 5px 0;")
+        layout.addWidget(self.installedLabel)
         
-        self.label = QLabel("Select the GHDL version to install:", self)
+        self.statusLabel = QLabel(self.get_version_status(), self)
+        self.statusLabel.setAlignment(Qt.AlignCenter)
+        self.statusLabel.setStyleSheet("font-size: 14px; padding: 5px 0;")
+        layout.addWidget(self.statusLabel)
+        
+        self.label = QLabel("Select the KiCad version to update: ", self)
+        self.label.setStyleSheet("font-size: 14px; padding: 5px 0;")
         layout.addWidget(self.label)
         
         self.versionCombo = QComboBox(self)
-        self.versionCombo.addItems(["3.0.0", "4.0.0", "4.1.0", "nightly"])
-        layout.addWidget(self.versionCombo)
-        
-        self.installButton = QPushButton("Install GHDL", self)
-        self.installButton.clicked.connect(self.runInstaller)
-        layout.addWidget(self.installButton)
-        
-        self.setLayout(layout)
-        self.setWindowTitle("GHDL Installer")
-        self.setGeometry(100, 100, 300, 150)
-    
-    def runInstaller(self):
-        selected_version = self.versionCombo.currentText()
-        print(f"Selected Version: {selected_version}")  # Debugging output
-
-        try:
-            result = subprocess.run(["bash", "./nghdl/update-ghdl-with-dependency.sh", selected_version], text=True)
-            print("Script Output:", result.stdout)  # Debugging output
-            QMessageBox.information(self, "Success", f"GHDL {selected_version} installation started.")
-        except subprocess.CalledProcessError as e:
-            print("Error Output:", e.stderr)  # Debugging output
-            QMessageBox.critical(self, "Error", "Failed to execute the installation script.")
-
-class KiCadInstallerGUI(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.initUI()
-    
-    def initUI(self):
-        layout = QVBoxLayout()
-        
-        self.label = QLabel("Select the KiCad version to install:", self)
-        layout.addWidget(self.label)
-        
-        self.versionCombo = QComboBox(self)
-        self.versionCombo.addItems(["7.0.11", "8.0.8"])
+        self.versionCombo.addItems(self.versions)
+        self.versionCombo.setStyleSheet("font-size: 14px; padding: 5px 0;")
         layout.addWidget(self.versionCombo)
         
         self.updateButton = QPushButton("Update KiCad", self)
-        self.updateButton.clicked.connect(self.runUpdate)
+        self.updateButton.clicked.connect(self.runUpdater)
+        self.updateButton.setStyleSheet("font-size: 14px; padding: 5px 0;")
         layout.addWidget(self.updateButton)
         
         self.setLayout(layout)
-        self.setWindowTitle("KiCad Update Manager")
-        self.setGeometry(100, 100, 300, 150)
+        self.setWindowTitle("KiCad Updater")
+        self.setGeometry(100, 100, 400, 300)
     
-    def runUpdate(self):
-        selected_version = self.versionCombo.currentText()
+    def get_version_status(self):
+        latest_version = "8.0.8"
+        if self.installed_version == "8.0.9-0~ubuntu20.04.1":
+            color = "green"
+            text = "You are using the latest version."
+        else:
+            color = "red"
+            text = "Please Update. Your Package is out of date."
         
+        return f'<span style="color:{color}; font-size:14px;">{text}</span>'
+    
+    def runUpdater(self):
+        if self.installed_version == "8.0.8-0~ubuntu20.04.1":
+            QMessageBox.information(self, "Info", "You are using the latest version.")
+            return
+        
+        selected_version = self.versionCombo.currentText()
         try:
-            subprocess.run(["bash", "./update-kicad-final.sh", selected_version], check=True, input=f"{selected_version}\n", text=True)
+            subprocess.run(["bash", self.script_path, selected_version], check=True, text=True)
             QMessageBox.information(self, "Success", f"KiCad {selected_version} installation started.")
+            self.main_gui.reload_versions()
+            self.installed_version = self.main_gui.package_versions.get("kicad", "Unknown")
+            self.installedLabel.setText(f"Installed Version: {self.installed_version}")
+            self.statusLabel.setText(self.get_version_status())
         except subprocess.CalledProcessError:
-            QMessageBox.critical(self, "Error", "Failed to execute the update script.")
-
-class NGSpiceInstallerGUI(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.initUI()
-    
-    def initUI(self):
-        layout = QVBoxLayout()
-        
-        self.label = QLabel("Select the NGSPICE version to install:", self)
-        layout.addWidget(self.label)
-        
-        self.versionCombo = QComboBox(self)
-        self.versionCombo.addItems(["38", "40", "43"])
-        layout.addWidget(self.versionCombo)
-        
-        self.installButton = QPushButton("Install NGSPICE", self)
-        self.installButton.clicked.connect(self.runInstaller)
-        layout.addWidget(self.installButton)
-        
-        self.setLayout(layout)
-        self.setWindowTitle("NGSPICE Installer")
-        self.setGeometry(100, 100, 300, 150)
-    
-    def runInstaller(self):
-        selected_version = self.versionCombo.currentText()
-        print(f"Selected Version: {selected_version}")  # Debugging output
-
-        try:
-            result = subprocess.run(["bash", "./nghdl/update-ngspice-final.sh", selected_version], text=True)
-            print("Script Output:", result.stdout)  # Debugging output
-            QMessageBox.information(self, "Success", f"NGSPICE {selected_version} installation started.")
-        except subprocess.CalledProcessError as e:
-            print("Error Output:", e.stderr)  # Debugging output
             QMessageBox.critical(self, "Error", "Failed to execute the installation script.")
 
-class VerilatorInstallerGUI(QWidget):
-    def __init__(self):
+class GHDLUpdaterGUI(QWidget):
+    def __init__(self, main_gui):
         super().__init__()
+        self.main_gui = main_gui
+        self.package_name = "GHDL"
+        self.versions = ["3.0.0", "4.0.0", "4.1.0", "5.0.0-dev"]
+        self.script_path = "./nghdl/update-ghdl-with-dependency.sh"
         self.initUI()
     
     def initUI(self):
         layout = QVBoxLayout()
+
+        self.title_label = QLabel("GHDL Updater", self)
+        self.title_label.setAlignment(Qt.AlignCenter)
+        self.title_label.setStyleSheet("font-size: 18px; padding: 10px 0;")
+        layout.addWidget(self.title_label)
+
+        self.installed_version = self.main_gui.package_versions.get("ghdl", "Unknown")
+        self.installedLabel = QLabel(f"Installed Version: {self.installed_version}", self)
+        self.installedLabel.setStyleSheet("font-size: 14px; padding: 5px 0;")
+        layout.addWidget(self.installedLabel)
         
-        self.label = QLabel("Select the Verilator version to install:", self)
+        self.statusLabel = QLabel(self.get_version_status(), self)
+        self.statusLabel.setAlignment(Qt.AlignCenter)
+        self.statusLabel.setStyleSheet("font-size: 14px; padding: 5px 0;")
+        layout.addWidget(self.statusLabel)
+        
+        self.label = QLabel("Select the GHDL version to update: ", self)
+        self.label.setStyleSheet("font-size: 14px; padding: 5px 0;")
         layout.addWidget(self.label)
         
         self.versionCombo = QComboBox(self)
-        self.versionCombo.addItems(["4.228", "5.020", "5.026", "5.030"])
+        self.versionCombo.addItems(self.versions)
+        self.versionCombo.setStyleSheet("font-size: 14px; padding: 5px 0;")
         layout.addWidget(self.versionCombo)
         
-        self.installButton = QPushButton("Install Verilator", self)
-        self.installButton.clicked.connect(self.runInstaller)
-        layout.addWidget(self.installButton)
+        self.updateButton = QPushButton("Update GHDL", self)
+        self.updateButton.clicked.connect(self.runUpdater)
+        self.updateButton.setStyleSheet("font-size: 14px; padding: 5px 0;")
+        layout.addWidget(self.updateButton)
         
         self.setLayout(layout)
-        self.setWindowTitle("Verilator Installer")
-        self.setGeometry(100, 100, 300, 150)
+        self.setWindowTitle("GHDL Updater")
+        self.setGeometry(100, 100, 400, 300)
     
-    def runInstaller(self):
-        selected_version = self.versionCombo.currentText()
-        print(f"Selected Version: {selected_version}")  # Debugging output
+    def get_version_status(self):
+        latest_version = self.versions[-1]
+        if self.installed_version == "Unknown" or self.installed_version != latest_version:
+            color = "red"
+            text = "Please Update. Your Package is out of date."
+        else:
+            color = "green"
+            text = "You are using the latest version."
+        
+        return f'<span style="color:{color}; font-size:14px;">{text}</span>'
+    
+    def runUpdater(self):
+        if self.installed_version == "5.0.0-dev":
+            QMessageBox.information(self, "Info", "You are using the latest version.")
+            return
 
+        selected_version = self.versionCombo.currentText()
         try:
-            result = subprocess.run(["./nghdl/update-verilator-final.sh", selected_version], text=True)
-            print("Script Output:", result.stdout)  # Debugging output
+            subprocess.run(["bash", self.script_path, selected_version], check=True, text=True)
+            QMessageBox.information(self, "Success", f"GHDL {selected_version} installation started.")
+            self.main_gui.reload_versions()
+            self.installed_version = self.main_gui.package_versions.get("ghdl", "Unknown")
+            self.installedLabel.setText(f"Installed Version: {self.installed_version}")
+            self.statusLabel.setText(self.get_version_status())
+        except subprocess.CalledProcessError:
+            QMessageBox.critical(self, "Error", "Failed to execute the installation script.")
+
+class VerilatorUpdaterGUI(QWidget):
+    def __init__(self, main_gui):
+        super().__init__()
+        self.main_gui = main_gui
+        self.package_name = "Verilator"
+        self.versions = ["4.228", "5.020", "5.026", "5.030"]
+        self.script_path = "./nghdl/update-verilator-final.sh"
+        self.initUI()
+    
+    def initUI(self):
+        layout = QVBoxLayout()
+
+        self.title_label = QLabel("Verilator Updater", self)
+        self.title_label.setAlignment(Qt.AlignCenter)
+        self.title_label.setStyleSheet("font-size: 18px; padding: 10px 0;")
+        layout.addWidget(self.title_label)
+
+        self.installed_version = self.main_gui.package_versions.get("verilator", "Unknown")
+        self.installedLabel = QLabel(f"Installed Version: {self.installed_version}", self)
+        self.installedLabel.setStyleSheet("font-size: 14px; padding: 5px 0;")
+        layout.addWidget(self.installedLabel)
+        
+        self.statusLabel = QLabel(self.get_version_status(), self)
+        self.statusLabel.setAlignment(Qt.AlignCenter)
+        self.statusLabel.setStyleSheet("font-size: 14px; padding: 5px 0;")
+        layout.addWidget(self.statusLabel)
+        
+        self.label = QLabel("Select the Verilator version to update: ", self)
+        self.label.setStyleSheet("font-size: 14px; padding: 5px 0;")
+        layout.addWidget(self.label)
+        
+        self.versionCombo = QComboBox(self)
+        self.versionCombo.addItems(self.versions)
+        self.versionCombo.setStyleSheet("font-size: 14px; padding: 5px 0;")
+        layout.addWidget(self.versionCombo)
+        
+        self.updateButton = QPushButton("Update Verilator", self)
+        self.updateButton.clicked.connect(self.runUpdater)
+        self.updateButton.setStyleSheet("font-size: 14px; padding: 5px 0;")
+        layout.addWidget(self.updateButton)
+        
+        self.setLayout(layout)
+        self.setWindowTitle("Verilator Updater")
+        self.setGeometry(100, 100, 400, 300)
+    
+    def get_version_status(self):
+        latest_version = "verilator-5.030"
+        if self.installed_version == "Unknown" or self.installed_version != latest_version:
+            color = "red"
+            text = "Please Update. Your Package is out of date."
+        else:
+            color = "green"
+            text = "You are using the latest version."
+        
+        return f'<span style="color:{color}; font-size:14px;">{text}</span>'
+    
+    def runUpdater(self):
+        if self.installed_version == "verilator-5.030":
+            QMessageBox.information(self, "Info", "You are using the latest version.")
+            return
+
+        selected_version = self.versionCombo.currentText()
+        try:
+            subprocess.run(["bash", self.script_path, selected_version], check=True, text=True)
             QMessageBox.information(self, "Success", f"Verilator {selected_version} installation started.")
-        except subprocess.CalledProcessError as e:
-            print("Error Output:", e.stderr)  # Debugging output
+            self.main_gui.reload_versions()
+            self.installed_version = self.main_gui.package_versions.get("verilator", "Unknown")
+            self.installedLabel.setText(f"Installed Version: {self.installed_version}")
+            self.statusLabel.setText(self.get_version_status())
+        except subprocess.CalledProcessError:
+            QMessageBox.critical(self, "Error", "Failed to execute the installation script.")
+
+class NGSpiceUpdaterGUI(QWidget):
+    def __init__(self, main_gui):
+        super().__init__()
+        self.main_gui = main_gui
+        self.package_name = "NGSPICE"
+        self.versions = ["38", "40", "43"]
+        self.script_path = "./nghdl/update-ngspice-final.sh"
+        self.initUI()
+    
+    def initUI(self):
+        layout = QVBoxLayout()
+
+        self.title_label = QLabel("NGSPICE Updater", self)
+        self.title_label.setAlignment(Qt.AlignCenter)
+        self.title_label.setStyleSheet("font-size: 18px; padding: 10px 0;")
+        layout.addWidget(self.title_label)
+
+        self.installed_version = self.main_gui.package_versions.get("ngspice", "Unknown")
+        self.installedLabel = QLabel(f"Installed Version: {self.installed_version}", self)
+        self.installedLabel.setStyleSheet("font-size: 14px; padding: 5px 0;")
+        layout.addWidget(self.installedLabel)
+        
+        self.statusLabel = QLabel(self.get_version_status(), self)
+        self.statusLabel.setAlignment(Qt.AlignCenter)
+        self.statusLabel.setStyleSheet("font-size: 14px; padding: 5px 0;")
+        layout.addWidget(self.statusLabel)
+        
+        self.label = QLabel("Select the NGSPICE version to update: ", self)
+        self.label.setStyleSheet("font-size: 14px; padding: 5px 0;")
+        layout.addWidget(self.label)
+        
+        self.versionCombo = QComboBox(self)
+        self.versionCombo.addItems(self.versions)
+        self.versionCombo.setStyleSheet("font-size: 14px; padding: 5px 0;")
+        layout.addWidget(self.versionCombo)
+        
+        self.updateButton = QPushButton("Update NGSPICE", self)
+        self.updateButton.clicked.connect(self.runUpdater)
+        self.updateButton.setStyleSheet("font-size: 14px; padding: 5px 0;")
+        layout.addWidget(self.updateButton)
+        
+        self.setLayout(layout)
+        self.setWindowTitle("NGSPICE Updater")
+        self.setGeometry(100, 100, 400, 300)
+    
+    def get_version_status(self):
+        latest_version = "ngspice-43"
+        if self.installed_version == "Unknown" or self.installed_version != latest_version:
+            color = "red"
+            text = "Please Update. Your Package is out of date."
+        else:
+            color = "green"
+            text = "You are using the latest version."
+        
+        return f'<span style="color:{color}; font-size:14px;">{text}</span>'
+    
+    def runUpdater(self):
+        if self.installed_version == "43":
+            QMessageBox.information(self, "Info", "You are using the latest version.")
+            return
+        
+        selected_version = self.versionCombo.currentText()
+        try:
+            subprocess.run(["bash", self.script_path, selected_version], check=True, text=True)
+            QMessageBox.information(self, "Success", f"NGSPICE {selected_version} installation started.")
+            self.main_gui.reload_versions()
+            self.installed_version = self.main_gui.package_versions.get("ngspice", "Unknown")
+            self.installedLabel.setText(f"Installed Version: {self.installed_version}")
+            self.statusLabel.setText(self.get_version_status())
+        except subprocess.CalledProcessError:
             QMessageBox.critical(self, "Error", "Failed to execute the installation script.")
 
 class MainGUI(QWidget):
@@ -162,40 +314,86 @@ class MainGUI(QWidget):
     
     def initUI(self):
         layout = QVBoxLayout()
+
+        self.setWindowTitle("Tool Manager")
+        # self.setGeometry(-200, -200, 400, 300)
+        self.center()
         
-        self.version_label = QLabel(self.get_version_text(), self)
+        self.title_label = QLabel("Tool Manager (Update)", self)
+        self.title_label.setAlignment(Qt.AlignCenter)
+        self.title_label.setStyleSheet("font-size: 20px; padding: 10px 0;")
+        layout.addWidget(self.title_label)
+
+        self.version_label = QLabel("Installed Version", self)
+        self.version_label.setStyleSheet("font-size: 16px; padding: 5px 0;")
         layout.addWidget(self.version_label)
 
-        self.setLayout(layout)
-        self.setWindowTitle("Update Manager")
-        self.setGeometry(100, 100, 400, 300)
+        self.version_text_label = QLabel(self.get_version_text(), self)
+        self.version_text_label.setStyleSheet("font-size: 16px; padding: 5px 0;")
+        layout.addWidget(self.version_text_label)
+
+        self.download_label = QLabel("Please download the packages first.", self)
+        self.download_label.setAlignment(Qt.AlignCenter)
+        self.download_label.setStyleSheet("font-size: 14px; padding: 5px 0;")
+        layout.addWidget(self.download_label)
 
         self.download_button = QPushButton("Download Packages", self)
+        self.download_button.setStyleSheet("font-size: 14px;")
         self.download_button.clicked.connect(self.runDownloadPackages)
         layout.addWidget(self.download_button)
 
-        self.kicad_button = QPushButton("Open KiCad Installer", self)
+        self.update_label = QLabel("Please update the dependencies first.", self)
+        self.update_label.setAlignment(Qt.AlignCenter)
+        self.update_label.setStyleSheet("font-size: 14px; padding: 5px 0;")
+        layout.addWidget(self.update_label)
+
+        self.update_button = QPushButton("Update Dependencies", self)
+        self.update_button.setStyleSheet("font-size: 14px;")
+        self.update_button.clicked.connect(lambda: self.runUpdate(self.files["Update Dependencies"]))
+        layout.addWidget(self.update_button)
+
+        self.Updater_label = QLabel("You can update each package from the respective updater.", self)
+        self.Updater_label.setAlignment(Qt.AlignCenter)
+        self.Updater_label.setStyleSheet("font-size: 14px; padding: 5px 0;")
+        layout.addWidget(self.Updater_label)
+
+        self.kicad_button = QPushButton("Open KiCad Updater", self)
+        self.kicad_button.setStyleSheet("font-size: 14px;")
         self.kicad_button.clicked.connect(self.openKiCad)
         layout.addWidget(self.kicad_button)
 
-        self.ghdl_button = QPushButton("Open GHDL Installer", self)
+        self.ghdl_button = QPushButton("Open GHDL Updater", self)
+        self.ghdl_button.setStyleSheet("font-size: 14px;")
         self.ghdl_button.clicked.connect(self.openGHDL)
         layout.addWidget(self.ghdl_button)
 
-        self.verilator_button = QPushButton("Open Verilator Installer", self)
+        self.verilator_button = QPushButton("Open Verilator Updater", self)
+        self.verilator_button.setStyleSheet("font-size: 14px;")
         self.verilator_button.clicked.connect(self.openVerilator)
         layout.addWidget(self.verilator_button)
 
-        self.ngspice_button = QPushButton("Open NGSPICE Installer", self)
+        self.ngspice_button = QPushButton("Open NGSPICE Updater", self)
+        self.ngspice_button.setStyleSheet("font-size: 14px;")
         self.ngspice_button.clicked.connect(self.openNGSpice)
         layout.addWidget(self.ngspice_button)
-        
-        for title, script in self.files.items():
-            button = QPushButton(title, self)
-            button.clicked.connect(lambda checked, s=script: self.runUpdate(s))
-            layout.addWidget(button)
-        
+
+        self.check_label = QLabel("You can check the packages updated or not alongside with the version in the json file.", self)
+        self.check_label.setAlignment(Qt.AlignCenter)
+        self.check_label.setStyleSheet("font-size: 14px; padding: 5px 0;")
+        layout.addWidget(self.check_label)
+
+        self.check_button = QPushButton("Check Packages", self)
+        self.check_button.setStyleSheet("font-size: 14px;")
+        self.check_button.clicked.connect(lambda: self.runUpdate(self.files["Check Packages"]))
+        layout.addWidget(self.check_button)
+
+        self.remove_label = QLabel("Please remove the packages for the storage usage.", self)
+        self.remove_label.setAlignment(Qt.AlignCenter)
+        self.remove_label.setStyleSheet("font-size: 14px; padding: 5px 0;")
+        layout.addWidget(self.remove_label)
+
         self.remove_button = QPushButton("Remove Packages", self)
+        self.remove_button.setStyleSheet("font-size: 14px;")
         self.remove_button.clicked.connect(self.runRemovePackages)
         layout.addWidget(self.remove_button)
         
@@ -207,30 +405,48 @@ class MainGUI(QWidget):
                f"GHDL: {self.package_versions.get('ghdl', 'Unknown')}\n" \
                f"Verilator: {self.package_versions.get('verilator', 'Unknown')}"
     
+    def reload_versions(self):
+        self.package_versions = self.load_versions()
+        self.version_text_label.setText(self.get_version_text())
+    
     def runUpdate(self, script):
         subprocess.run(["bash", script], check=True)
     
     def runDownloadPackages(self):
-        subprocess.run(["bash", "./nghdl/download_packages.sh", "download"], check=True)
+        result = subprocess.run(["bash", "./nghdl/download_packages.sh", "download"], text=True)
+        if result.returncode == 0:
+            QMessageBox.information(self, "Success", "Downloaded Packages successfully in the nghdl/packages folder.")
+        else:
+            QMessageBox.critical(self, "Error", "There is some error in downloading packages. You can check in the log.")
     
     def runRemovePackages(self):
-        subprocess.run(["bash", "./nghdl/download_packages.sh", "remove"], check=True)
+        result = subprocess.run(["bash", "./nghdl/download_packages.sh", "remove"], text=True)
+        if result.returncode == 0:
+            QMessageBox.information(self, "Success", "Removed Packages successfully from the nghdl/packages folder.")
+        else:
+            QMessageBox.critical(self, "Error", "There is some error in removing packages. You can check in the log.")
     
     def openGHDL(self):
-        self.ghdl_window = GHDLInstallerGUI()
+        self.ghdl_window = GHDLUpdaterGUI(self)
         self.ghdl_window.show()
     
     def openKiCad(self):
-        self.kicad_window = KiCadInstallerGUI()
+        self.kicad_window = KiCadUpdaterGUI(self)
         self.kicad_window.show()
     
     def openNGSpice(self):
-        self.ngspice_window = NGSpiceInstallerGUI()
+        self.ngspice_window = NGSpiceUpdaterGUI(self)
         self.ngspice_window.show()
     
     def openVerilator(self):
-        self.verilator_window = VerilatorInstallerGUI()
+        self.verilator_window = VerilatorUpdaterGUI(self)
         self.verilator_window.show()
+
+    def center(self):
+        screen = QApplication.primaryScreen().availableGeometry().center()
+        frame = self.frameGeometry()
+        frame.moveCenter(screen)
+        self.move(frame.topLeft())
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

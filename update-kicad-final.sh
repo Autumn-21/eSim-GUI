@@ -13,9 +13,9 @@ updateKicad() {
             kicadppa="kicad/kicad-7.0-releases"
             version="7.0.11~ubuntu20.04.1"
             ;;
-        "8.0.8")
+        "8.0.9")
             kicadppa="kicad/kicad-8.0-releases"
-            version="8.0.8-0~ubuntu20.04.1"
+            version="8.0.9-0~ubuntu20.04.1"
             ;;
         *)
             echo "Error: Invalid KiCad version specified!"
@@ -61,6 +61,7 @@ updateKicad() {
 
         echo "KiCad installation successful! Installed version: $installed_version"
         update_kicad_json "$installed_version"
+        copyKicadLibrary
     else
         echo "Error: KiCad was not installed correctly."
         return 1
@@ -84,37 +85,46 @@ update_kicad_json() {
     echo "Updated KiCad version to $kicad_version in $json_file"
 }
 
-function copyKicadLibrary
-{
+function copyKicadLibrary {
+    echo "Removing old KiCad library..."
+    rm -rf kicadLibrary  # Remove old extracted library if it exists
+
     echo "Extracting custom KiCad library..."
     tar -xJf library/kicadLibrary.tar.xz
 
-    # Check for the correct KiCad version (6.0/7.0/8.0) configuration folder
+    # Remove KiCad 6.0 configuration folder if it exists
     if [ -d "$HOME/.config/kicad/6.0" ]; then
-        echo "KiCad 6 configuration folder already exists."
-        kicad_config_dir="$HOME/.config/kicad/6.0"
-    elif [ -d "$HOME/.config/kicad/7.0" ]; then
+        echo "Removing old KiCad 6.0 configuration folder..."
+        rm -rf "$HOME/.config/kicad/6.0"
+    fi
+
+    # Check for the correct KiCad version (7.0/8.0) configuration folder
+    if [ -d "$HOME/.config/kicad/7.0" ]; then
         echo "KiCad 7 configuration folder already exists."
         kicad_config_dir="$HOME/.config/kicad/7.0"
     elif [ -d "$HOME/.config/kicad/8.0" ]; then
         echo "KiCad 8 configuration folder already exists."
         kicad_config_dir="$HOME/.config/kicad/8.0"
     else
-        echo "No KiCad config folder found. Creating a new one for KiCad 6..."
-        mkdir -p "$HOME/.config/kicad/6.0"
-        kicad_config_dir="$HOME/.config/kicad/6.0"
+        echo "No KiCad config folder found. Creating a new one for KiCad 7..."
+        mkdir -p "$HOME/.config/kicad/7.0"
+        kicad_config_dir="$HOME/.config/kicad/7.0"
     fi
 
     # Copy symbol table for eSim custom symbols
     cp kicadLibrary/template/sym-lib-table "$kicad_config_dir/"
     echo "Symbol table copied to the directory: $kicad_config_dir"
 
-    # Copy KiCad symbols made for eSim
+    # Remove old symbols before copying new ones
+    echo "Removing old KiCad symbols..."
+    sudo rm -rf /usr/share/kicad/symbols/*
+
+    # Copy new KiCad symbols made for eSim
     sudo cp -r kicadLibrary/eSim-symbols/* /usr/share/kicad/symbols/
 
     set +e      # Temporarily disable exit on error
     trap "" ERR # Do not trap on error of any command
-    
+
     # Remove extracted KiCad Library (no longer needed)
     rm -rf kicadLibrary
 
@@ -124,9 +134,8 @@ function copyKicadLibrary
     # Change ownership from Root to the User for the copied symbols
     sudo chown -R $USER:$USER /usr/share/kicad/symbols/
 
-    echo "Library successfully copied and ownership adjusted."
+    echo "Library successfully updated and ownership adjusted."
 }
 
 # Run the update function
 updateKicad "$1"
-copyKicadLibrary
