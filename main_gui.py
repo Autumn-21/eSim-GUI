@@ -81,7 +81,7 @@ class GHDLUpdaterGUI(QWidget):
         super().__init__()
         self.main_gui = main_gui
         self.package_name = "GHDL"
-        self.versions = ["3.0.0", "4.0.0", "4.1.0", "5.0.0-dev"]
+        self.versions = ["3.0.0", "4.0.0", "4.1.0", "nightly"]
         self.script_path = "./nghdl/update-ghdl-with-dependency.sh"
         self.initUI()
     
